@@ -1,6 +1,7 @@
 import seaborn as sb
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
 
 def import_data():
     df = pd.read_csv('UK Gender Pay Gap Data - 2017 to 2018.csv')
@@ -25,8 +26,8 @@ def create_synthetic_population_to_fit_stats():
     return
 
 def getCompanyData(df,comp = 'Ovo'):
-    out = df[df['EmployerName'].str.lower().str.contains(comp.lower())]
-    return out
+    '''Returns series of true falses. '''
+    return df['EmployerName'].str.lower().str.contains(comp.lower())
 
 ###drawing section - to library
 def drawVerticals(ax,df):
@@ -42,23 +43,29 @@ def find_404s(url):
     '''check all the urls to find who's not even put a proper webpage in place'''
     import urllib.request
     status = 'URL Valid'
-    import re
-    end = url[-6:]
-    if re.search('com',end) or re.search('co.uk',end):
-        status = 'URL is homepage'
+    if type(url) == float:
+        if np.isnan(url):
+            status = 'No URL Supplied'
+        else:
+            status = 'URL is number?'
     else:
-        pass
-    try:
-        req = urllib.request.Request(url)
+        import re
+        end = url[-6:]
+        if re.search('com',end) or re.search('co.uk',end):
+            status = 'URL is homepage'
+        else:
+            pass
         try:
-            urllib.request.urlopen(req)
-            # print('Success')
-        except urllib.error.URLError as e:
-            # print(e.reason)
-            status = e.reason
-    except:
-        print('url {} ill formed'.format(url))
-        status = 'URL ill formed'
+            req = urllib.request.Request(url)
+            try:
+                urllib.request.urlopen(req)
+                # print('Success')
+            except urllib.error.URLError as e:
+                # print(e.reason)
+                status = e.reason
+        except:
+            print('url {} ill formed'.format(url))
+            status = 'URL ill formed'
     return status
 
 def sbPlot(df):
@@ -79,7 +86,7 @@ def sbPlot(df):
 #Bottom left, women paid more average and median
 #Top Left, women paid more on average, but less on median.
 
-def bokeh_scatter(df, colourDimension = 'EmployerSize'):
+def bokeh_scatter(df, colourDimension = 'EmployerSize', title = "Mean (x)  vs Median (y) Scatter"):
     '''
     Make a scatter plot from a dataframe
     :param df:
@@ -97,8 +104,8 @@ def bokeh_scatter(df, colourDimension = 'EmployerSize'):
 
     # create a new plot
     p = figure(
-       tools="pan,box_zoom,reset,save, tap", title="Mean (x)  vs Median (y) Scatter",
-       x_axis_label='sections', y_axis_label='particles'
+       tools="pan,box_zoom,reset,save, tap", title=title,
+       x_axis_label='mean gap %', y_axis_label='median gap %'
     )
     p.circle(source=srce, x='DiffMeanHourlyPercent', y='DiffMedianHourlyPercent', legend="y=x", color=colourDimension,
              fill_color=colourDimension, size=8)
@@ -141,25 +148,28 @@ def classify_companies(df):
     :return:
     '''
     df['Sector'] = None
-    fc = getCompanyData(df, comp = 'Football Club')
-    ec = getCompanyData(df,comp = 'Energy')
+    df.loc[getCompanyData(df, comp = 'Football Club'),'Sector']= 'Football'
+    df.loc[getCompanyData(df, comp = 'Energy'),'Sector'] = 'Energy'
+    df.loc[getCompanyData(df, comp = 'Tech'),'Sector'] = 'Tech'
     #edit objects pointing to wider df.
-    fc['Sector'] = 'Football'
-    ec['Sector'] = 'Energy'
+    # fc.loc['Sector'] = 'Football'
+    # ec.loc['Sector'] = 'Energy'
 
 if __name__ =='__main__':
     df = import_data()
     classify_companies(df)
-    p, t = bokeh_scatter(df, colourDimension = 'Sector')
+    tc = df[df['Sector']=='Tech']
+    p, t = bokeh_scatter(tc, title = 'Tech Company Pay Gaps   ', colourDimension = 'Sector')
     show(p)
+    print(df.groupby(by = 'Sector').mean())
 
     ## test if the website link that company has provided actually works.
     urls = df['CompanyLinkToGPGInfo']
+    #
+    # df['URLWorks?'] = None
+    # for i, r in df.iterrows():
+    #     df['URLWorks?'][i] = find_404s(r['CompanyLinkToGPGInfo'])#
+    #     if i%100 == 0:
+    #         print (i) ##so can see how long it is taking.
 
-    df['URLWorks?'] = None
-    for i, r in df.iterrows():
-        df['URLWorks?'][i] = find_404s(r['CompanyLinkToGPGInfo'])
-        if i%100 == 0:
-            print (i) ##so can see how long it is taking.
-
-    maybe_pickle(df)
+    # maybe_pickle(df)
