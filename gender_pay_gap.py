@@ -51,21 +51,20 @@ def find_404s(url):
     else:
         import re
         end = url[-6:]
-        if re.search('com',end) or re.search('co.uk',end):
+        if re.search('com',end) or re.search('co.uk', end):
             status = 'URL is homepage'
         else:
-            pass
-        try:
-            req = urllib.request.Request(url)
             try:
-                urllib.request.urlopen(req)
-                # print('Success')
-            except urllib.error.URLError as e:
-                # print(e.reason)
-                status = e.reason
-        except:
-            print('url {} ill formed'.format(url))
-            status = 'URL ill formed'
+                req = urllib.request.Request(url)
+                try:
+                    urllib.request.urlopen(req)
+                    # print('Success')
+                except urllib.error.URLError as e:
+                    # print(e.reason)
+                    status = str(e.reason)
+            except:
+                print('url {} ill formed'.format(url))
+                status = 'URL ill formed'
     return status
 
 def sbPlot(df):
@@ -100,7 +99,7 @@ def bokeh_scatter(df, colourDimension = 'EmployerSize', title = "Mean (x)  vs Me
     srce = ColumnDataSource(df[['DiffMeanHourlyPercent','DiffMedianHourlyPercent','CurrentName','EmployerSize','DiffMeanHourlyPercent','DiffMedianHourlyPercent','CompanyLinkToGPGInfo','Sector']])
 
     # output to static HTML file
-    output_file("dots.html")
+    output_file("{}.html".format(title))
 
     # create a new plot
     p = figure(
@@ -135,11 +134,14 @@ from bokeh.models import ColumnDataSource, HoverTool, TapTool , OpenURL
 
 def maybe_pickle(df):
     import pickle as p
-    p.dump(df,'df.p')
+    with open('df.p','wb') as f:
+        p.dump(df, f)
 
 def maybe_unpickle():
     import pickle as p
-    p.load()
+    with open('df.p','rb') as f:
+        df = p.load(f)
+    return df
 
 def classify_companies(df):
     '''
@@ -155,21 +157,37 @@ def classify_companies(df):
     # fc.loc['Sector'] = 'Football'
     # ec.loc['Sector'] = 'Energy'
 
-if __name__ =='__main__':
+def init():
     df = import_data()
+    df['URLWorks?'] = None
     classify_companies(df)
+    return df
+
+def url_grouping(df):
+    g = df.groupby(by='URLWorks?', axis=0)
+    g.mean()
+
+if __name__ =='__main__':
+    df = init()
     tc = df[df['Sector']=='Tech']
-    p, t = bokeh_scatter(tc, title = 'Tech Company Pay Gaps   ', colourDimension = 'Sector')
+    ec = df[df['Sector']=='Energy']
+    fc = df[df['Sector']=='Football']
+    p, t = bokeh_scatter(df, title = 'Company Pay Gaps   ', colourDimension = 'Sector')
     show(p)
-    print(df.groupby(by = 'Sector').mean())
-
-    ## test if the website link that company has provided actually works.
-    urls = df['CompanyLinkToGPGInfo']
+    # print(df.groupby(by = 'Sector').mean())
     #
-    # df['URLWorks?'] = None
-    # for i, r in df.iterrows():
-    #     df['URLWorks?'][i] = find_404s(r['CompanyLinkToGPGInfo'])#
-    #     if i%100 == 0:
-    #         print (i) ##so can see how long it is taking.
-
-    # maybe_pickle(df)
+    # ## test if the website link that company has provided actually works.
+    # urls = df['CompanyLinkToGPGInfo']
+    # #
+    # df = maybe_unpickle()
+    for i, r in df.iterrows():
+        if r['URLWorks?'] is None:
+            df['URLWorks?'][i] = find_404s(r['CompanyLinkToGPGInfo'])#
+        else:
+            # print(i)
+            # print(r['URLWorks?'])
+            pass
+        if i%100 == 0:
+            print (i) ##so can see how long it is taking.
+            #pickle in case of loss
+            maybe_pickle(df)
